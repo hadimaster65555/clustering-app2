@@ -5,6 +5,16 @@ library(shinydashboardPlus)
 library(dplyr)
 library(openxlsx)
 library(factoextra)
+library(DBI)
+library(RMySQL)
+library(bcrypt)
+
+con <- dbConnect(MySQL(),
+                 user="root", 
+                 password="root",
+                 dbname="shiny_app", 
+                 host="localhost", 
+                 port = 3306)
         
 # halaman dashboard
 ui <- dashboardPagePlus(
@@ -142,17 +152,29 @@ server <- function(input, output, session) {
     
     # login
     observeEvent(input$login_button, {
+        # cek jika user sudah input username dan password
         if (nchar(input$username) != 0 & nchar(input$password) != 0) {
             token_login$username <- input$username
             token_login$password <- input$password
-            updateTextInput(session = session,
-                            inputId = "username",
-                            value = "")
-            updateTextInput(session = session,
-                            inputId = "password",
-                            value = "")
-            
-            session$sendCustomMessage("background-color", message = "login")
+            dbGetQuery(conn = con, 
+                       statement = paste0("select username, password from users where username = '", token_login$username,"'")) %>% 
+                select(password) %>% 
+                collect() %>% 
+                as.character() -> pass
+            if (checkpw(password = token_login$password, hash = pass) == TRUE) {
+                updateTextInput(session = session,
+                                inputId = "username",
+                                value = "")
+                updateTextInput(session = session,
+                                inputId = "password",
+                                value = "")
+                
+                session$sendCustomMessage("background-color", message = "login")
+            } else {
+                return()
+            }
+        } else {
+            return()
         }
     })
     
